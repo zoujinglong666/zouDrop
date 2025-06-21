@@ -11,7 +11,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:open_file/open_file.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import '../../common/DeviceManager.dart';
 import '../../components/StatusIndicator.dart';
+import 'package:app_settings/app_settings.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -48,6 +50,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    // 启动设备离线检测定时器，每5秒检查一次离线设备
+    DeviceManager().startCleanupTimer();
+    DeviceManager().addListener(_onDevicesChanged);
     _initialize();
     // 监听网络状态变化
     WidgetsBinding.instance.addObserver(this);
@@ -64,13 +69,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
   }
 
-
-
-
-
+  void _onDevicesChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
 
   Future<void> _initialize() async {
-    await _requestPermissions();
+    await _requestPermissions(context);
     localIps = await _getLocalIPs();
     await _startUdpDiscovery();
     await _startTcpServer();
@@ -178,20 +183,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
             final broadcast = InternetAddress(broadcastIP);
             udpSocket?.send(message, broadcast, udpPort);
-
           }
         }
       }
 
       if (sentBroadcasts.isEmpty) {
+        final connectivityResult = await Connectivity().checkConnectivity();
+        _log(connectivityResult.toString());
+
         _log('未找到有效的广播地址');
       }
     } catch (e, stack) {
       _log('发送UDP广播失败: $e\n$stack');
     }
   }
-
-
 
   Future<void> _pickAnyFile() async {
     if (connectedSocket == null) {
@@ -264,14 +269,61 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return '${size.toStringAsFixed(2)} ${units[i]}';
   }
 
-  Future<void> _requestPermissions() async {
+
+
+  Future<void> _requestPermissions(BuildContext context) async {
     try {
-      await [
+      final statuses = await [
         Permission.storage,
         Permission.manageExternalStorage,
         Permission.bluetooth,
-        Permission.location,
+        Permission.location, // WiFi 必需的定位权限
       ].request();
+
+      // ❗ 检查定位权限（WiFi功能需要）
+      if (statuses[Permission.location]?.isGranted != true) {
+        _log('定位权限未开启，WiFi 功能可能无法使用');
+
+        final shouldOpen = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('权限提示'),
+            content: const Text('您尚未授予定位权限，部分局域网功能将无法使用。\n是否前往设置开启？'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('前往设置')),
+            ],
+          ),
+        );
+
+        if (shouldOpen == true) {
+          AppSettings.openAppSettings(type: AppSettingsType.location);
+        }
+
+        return;
+      }
+
+      // ✅ 可选：检查 WiFi 是否连接
+      final connectivityResult = await Connectivity().checkConnectivity();
+      if (connectivityResult != ConnectivityResult.wifi) {
+        _log('当前未连接 WiFi，可能无法使用局域网功能');
+
+        final shouldOpenWifi = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('网络提示'),
+            content: const Text('您当前未连接 WiFi，局域网功能可能无法使用。\n是否前往打开 WiFi 设置？'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('前往设置')),
+            ],
+          ),
+        );
+
+        if (shouldOpenWifi == true) {
+          AppSettings.openAppSettings(type: AppSettingsType.wifi);
+        }
+      }
     } catch (e) {
       _log('请求权限时出错: $e');
     }
@@ -375,6 +427,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
             if (ip.isNotEmpty && !discoveredIps.contains(ip)) {
               setState(() => discoveredIps.add(ip));
+
+              DeviceManager().addOrUpdateDevice(ip, null);
               _log('发现新的设备IP：$ip');
             }
           }
@@ -716,6 +770,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _scrollController.dispose();
     _connectivitySubscription?.cancel();
     _deviceCleanupTimer?.cancel(); // 新增：取消定时器
+    DeviceManager().removeListener(_onDevicesChanged);
+    DeviceManager().disposeManager();
     super.dispose();
   }
 
@@ -762,6 +818,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final devices = DeviceManager().mapToList();
     return Scaffold(
       appBar: AppBar(
         title: const Text('ZouDrop'),
@@ -790,6 +847,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               StatusIndicator(
                 isActive: isTcpServerRunning,
                 textBuilder: (isActive) => isActive ? 'TCP服务正常' : 'TCP服务未开启',
+              ),
+              StatusIndicator(
+                isActive: isTcpServerRunning,
+                textBuilder:
+                    (isActive) =>
+                        isActive ? devices.length.toString() : 'TCP服务未开启',
               ),
             ],
           ),

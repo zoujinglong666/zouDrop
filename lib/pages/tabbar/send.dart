@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../common/DeviceManager.dart';
+
 class SendPage extends StatefulWidget {
   const SendPage({super.key});
 
@@ -54,6 +56,7 @@ class _SendPageState extends State<SendPage> {
               },
             ),
           ),
+          _buildDeviceCard()
         ],
       ),
     );
@@ -85,5 +88,40 @@ class _SendPageState extends State<SendPage> {
       ),
     );
   }
+
+  Widget _buildDeviceCard() {
+    return Expanded(
+      child: AnimatedBuilder(
+        animation: DeviceManager(),
+        builder: (context, _) {
+          final devices = DeviceManager().mapToList();
+
+          if (devices.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text('暂无设备'),
+            );
+          }
+
+          return ListView.builder(
+            itemCount: devices.length,
+            itemBuilder: (context, index) {
+              final device = devices[index];
+              return ListTile(
+                leading: Icon(device.isOnline ? Icons.devices : Icons.developer_board_off),
+                title: Text(device.name),
+                subtitle: Text(device.ip),
+                trailing: device.isOnline
+                    ? const Text('在线', style: TextStyle(color: Colors.green))
+                    : const Text('离线', style: TextStyle(color: Colors.red)),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+
 
 }
