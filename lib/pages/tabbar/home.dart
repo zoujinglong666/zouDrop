@@ -14,6 +14,8 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../common/DeviceManager.dart';
 import 'package:app_settings/app_settings.dart';
 
+import '../../components/GradientButton.dart';
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -268,16 +270,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return '${size.toStringAsFixed(2)} ${units[i]}';
   }
 
-
-
   Future<void> _requestPermissions(BuildContext context) async {
     try {
-      final statuses = await [
-        Permission.storage,
-        Permission.manageExternalStorage,
-        Permission.bluetooth,
-        Permission.location, // WiFi 必需的定位权限
-      ].request();
+      final statuses =
+          await [
+            Permission.storage,
+            Permission.manageExternalStorage,
+            Permission.bluetooth,
+            Permission.location, // WiFi 必需的定位权限
+          ].request();
 
       // ❗ 检查定位权限（WiFi功能需要）
       if (statuses[Permission.location]?.isGranted != true) {
@@ -285,14 +286,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
         final shouldOpen = await showDialog<bool>(
           context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('权限提示'),
-            content: const Text('您尚未授予定位权限，部分局域网功能将无法使用。\n是否前往设置开启？'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('前往设置')),
-            ],
-          ),
+          builder:
+              (_) => AlertDialog(
+                title: const Text('权限提示'),
+                content: const Text('您尚未授予定位权限，部分局域网功能将无法使用。\n是否前往设置开启？'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('取消'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('前往设置'),
+                  ),
+                ],
+              ),
         );
 
         if (shouldOpen == true) {
@@ -309,14 +317,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
         final shouldOpenWifi = await showDialog<bool>(
           context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('网络提示'),
-            content: const Text('您当前未连接 WiFi，局域网功能可能无法使用。\n是否前往打开 WiFi 设置？'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('前往设置')),
-            ],
-          ),
+          builder:
+              (_) => AlertDialog(
+                title: const Text('网络提示'),
+                content: const Text(
+                  '您当前未连接 WiFi，局域网功能可能无法使用。\n是否前往打开 WiFi 设置？',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('取消'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('前往设置'),
+                  ),
+                ],
+              ),
         );
 
         if (shouldOpenWifi == true) {
@@ -871,22 +888,37 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: isSearching ? null : _refreshDiscovery,
-                    icon: isSearching
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00D4FF)),
-                          )
-                        : const Icon(Icons.refresh, color: Color(0xFF00D4FF)),
+                    icon:
+                        isSearching
+                            ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFF00D4FF),
+                              ),
+                            )
+                            : const Icon(
+                              Icons.refresh,
+                              color: Color(0xFF00D4FF),
+                            ),
                     label: Text(
                       isSearching ? '正在搜索设备...' : '刷新查找设备',
-                      style: const TextStyle(color: Color(0xFF00D4FF), fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: Color(0xFF00D4FF),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       elevation: 0,
-                      side: const BorderSide(color: Color(0xFF00D4FF), width: 1.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      side: const BorderSide(
+                        color: Color(0xFF00D4FF),
+                        width: 1.5,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                   ),
@@ -897,58 +929,85 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 if (discoveredIps.isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(24.0),
-                    child: Center(child: Text('未发现设备，请点击刷新按钮搜索', style: TextStyle(color: Color(0xFF00D4FF)))),
+                    child: Center(
+                      child: Text(
+                        '未发现设备，请点击刷新按钮搜索',
+                        style: TextStyle(color: Color(0xFF00D4FF)),
+                      ),
+                    ),
                   )
                 else ...[
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 8.0),
                     child: Text(
                       '发现的设备:',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF00D4FF), fontSize: 16),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF00D4FF),
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                   ...discoveredIps.map(
                     (ip) => Container(
                       margin: const EdgeInsets.symmetric(vertical: 6),
                       decoration: BoxDecoration(
-                        gradient: connectedIp == ip
-                            ? const LinearGradient(
-                                colors: [Color(0xFF00D4FF), Color(0xFF0099CC)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              )
-                            : null,
+                        gradient:
+                            connectedIp == ip
+                                ? const LinearGradient(
+                                  colors: [
+                                    Color(0xFF00D4FF),
+                                    Color(0xFF0099CC),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                )
+                                : null,
                         color: connectedIp == ip ? null : Colors.white,
                         borderRadius: BorderRadius.circular(14),
                         boxShadow: [
                           BoxShadow(
-                            color: connectedIp == ip
-                                ? const Color(0xFF00D4FF).withOpacity(0.10)
-                                : Colors.black.withOpacity(0.03),
+                            color:
+                                connectedIp == ip
+                                    ? const Color(0xFF00D4FF).withOpacity(0.10)
+                                    : Colors.black.withOpacity(0.03),
                             blurRadius: 10,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
                       child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         leading: Container(
                           width: 38,
                           height: 38,
                           decoration: BoxDecoration(
-                            gradient: connectedIp == ip
-                                ? const LinearGradient(
-                                    colors: [Color(0xFF00D4FF), Color(0xFF0099CC)],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  )
-                                : null,
-                            color: connectedIp == ip ? null : const Color(0xFFF0F0F0),
+                            gradient:
+                                connectedIp == ip
+                                    ? const LinearGradient(
+                                      colors: [
+                                        Color(0xFF00D4FF),
+                                        Color(0xFF0099CC),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    )
+                                    : null,
+                            color:
+                                connectedIp == ip
+                                    ? null
+                                    : const Color(0xFFF0F0F0),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             connectedIp == ip ? Icons.link : Icons.devices,
-                            color: connectedIp == ip ? Colors.white : const Color(0xFF00D4FF),
+                            color:
+                                connectedIp == ip
+                                    ? Colors.white
+                                    : const Color(0xFF00D4FF),
                             size: 22,
                           ),
                         ),
@@ -959,7 +1018,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               decoration: TextDecoration.underline,
-                              color: connectedIp == ip ? Colors.white : const Color(0xFF222222),
+                              color:
+                                  connectedIp == ip
+                                      ? Colors.white
+                                      : const Color(0xFF222222),
                             ),
                           ),
                         ),
@@ -967,24 +1029,30 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           connectedIp == ip
                               ? '✅ 已连接'
                               : connectedSocket == null
-                                  ? '⚠️ 未连接'
-                                  : '🔌 正在连接其他设备',
+                              ? '⚠️ 未连接'
+                              : '🔌 正在连接其他设备',
                           style: TextStyle(
-                            color: connectedIp == ip ? Colors.white70 : const Color(0xFF888888),
+                            color:
+                                connectedIp == ip
+                                    ? Colors.white70
+                                    : const Color(0xFF888888),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                         trailing: ElevatedButton(
-                          onPressed: isSearching || (connectedIp == ip)
-                              ? null
-                              : () => _connectTo(ip),
+                          onPressed:
+                              isSearching || (connectedIp == ip)
+                                  ? null
+                                  : () => _connectTo(ip),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: connectedIp == ip
-                                ? Colors.white.withOpacity(0.18)
-                                : Colors.white,
-                            foregroundColor: connectedIp == ip
-                                ? Colors.white
-                                : const Color(0xFF00D4FF),
+                            backgroundColor:
+                                connectedIp == ip
+                                    ? Colors.white.withOpacity(0.18)
+                                    : Colors.white,
+                            foregroundColor:
+                                connectedIp == ip
+                                    ? Colors.white
+                                    : const Color(0xFF00D4FF),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -993,7 +1061,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           child: Text(
                             isLocalIp(ip) ? '本机' : '连接设备',
                             style: TextStyle(
-                              color: connectedIp == ip ? Colors.white : const Color(0xFF00D4FF),
+                              color:
+                                  connectedIp == ip
+                                      ? Colors.white
+                                      : const Color(0xFF00D4FF),
                             ),
                           ),
                         ),
@@ -1004,71 +1075,35 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
                 const SizedBox(height: 24),
 
-                // 文件操作按钮
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 44,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: connectedSocket != null
-                                ? [Color(0xFF00D4FF), Color(0xFF0099CC)]
-                                : [Color(0xFFCCCCCC), Color(0xFFAAAAAA)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: const BorderRadius.all(Radius.circular(10)),
-                        ),
-                        child: ElevatedButton.icon(
-                          onPressed: connectedSocket != null ? _pickAndSendFile : null,
+                // 这里还不能使用花括号
+                if (connectedSocket != null)
+                  // 文件操作按钮
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GradientButton(
+                          enabled: connectedSocket != null,
                           icon: const Icon(Icons.image, color: Colors.white),
-                          label: const Text('发送图片', style: TextStyle(color: Colors.white)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            shadowColor: Colors.transparent,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
+                          label: '发送图片',
+                          onPressed: _pickAndSendFile,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Container(
-                        height: 44,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: connectedSocket != null
-                                ? [Color(0xFF00D4FF), Color(0xFF0099CC)]
-                                : [Color(0xFFCCCCCC), Color(0xFFAAAAAA)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: GradientButton(
+                          enabled: connectedSocket != null,
+                          icon: const Icon(
+                            Icons.attach_file,
+                            color: Colors.white,
                           ),
-                          borderRadius: const BorderRadius.all(Radius.circular(10)),
-                        ),
-                        child: ElevatedButton.icon(
-                          onPressed: connectedSocket != null ? _pickAnyFile : null,
-                          icon: const Icon(Icons.attach_file, color: Colors.white),
-                          label: const Text('发送文件', style: TextStyle(color: Colors.white)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            shadowColor: Colors.transparent,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
+                          label: '发送文件',
+                          onPressed: _pickAnyFile,
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
 
-                const SizedBox(height: 24),
-
+                if (connectedSocket != null) const SizedBox(height: 24),
                 // 日志区域
                 _buildLogModern(context),
               ],
@@ -1092,15 +1127,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       margin: const EdgeInsets.symmetric(horizontal: 2),
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: isActive
-            ? const Color(0x2200D4FF)
-            : const Color(0xFFF5F6FA),
+        color: isActive ? const Color(0x2200D4FF) : const Color(0xFFF5F6FA),
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: isActive
-                ? const Color(0xFF00D4FF).withOpacity(0.06)
-                : Colors.black.withOpacity(0.01),
+            color:
+                isActive
+                    ? const Color(0xFF00D4FF).withOpacity(0.06)
+                    : Colors.black.withOpacity(0.01),
             blurRadius: 4,
             offset: const Offset(0, 1),
           ),
@@ -1123,16 +1157,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             customText ?? (isActive ? '正常' : '未开启'),
             style: TextStyle(
               fontSize: 11,
-              color: isActive ? const Color(0xFF00D4FF) : const Color(0xFFB0BEC5),
+              color:
+                  isActive ? const Color(0xFF00D4FF) : const Color(0xFFB0BEC5),
               fontWeight: FontWeight.w600,
             ),
           ),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 10,
-              color: Color(0xFF888888),
-            ),
+            style: const TextStyle(fontSize: 10, color: Color(0xFF888888)),
           ),
         ],
       ),
@@ -1165,15 +1197,32 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               children: [
                 const Icon(Icons.list_alt, size: 18, color: Color(0xFF00D4FF)),
                 const SizedBox(width: 6),
-                const Text('操作日志', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF00D4FF))),
+                const Text(
+                  '操作日志',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Color(0xFF00D4FF),
+                  ),
+                ),
                 const Spacer(),
                 TextButton.icon(
                   onPressed: _clearLog,
-                  icon: const Icon(Icons.clear_all, size: 16, color: Color(0xFF00D4FF)),
-                  label: const Text('清空', style: TextStyle(fontSize: 12, color: Color(0xFF00D4FF))),
+                  icon: const Icon(
+                    Icons.clear_all,
+                    size: 16,
+                    color: Color(0xFF00D4FF),
+                  ),
+                  label: const Text(
+                    '清空',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF00D4FF)),
+                  ),
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFF00D4FF),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
@@ -1189,10 +1238,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               controller: _scrollController,
               child: Text(
                 log.isEmpty ? '暂无日志' : log,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF222222),
-                ),
+                style: const TextStyle(fontSize: 12, color: Color(0xFF222222)),
               ),
             ),
           ),
