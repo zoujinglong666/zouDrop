@@ -1,14 +1,13 @@
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Prefs {
   static late SharedPreferences _prefs;
 
-  /// 初始化（在 app 启动时调用）
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
   }
 
-  /// 设置值，可选传入过期时间（单位：秒）
   static Future<void> set(String key, dynamic value, {int? expireInSeconds}) async {
     if (value is String) {
       await _prefs.setString(key, value);
@@ -21,17 +20,17 @@ class Prefs {
     } else if (value is List<String>) {
       await _prefs.setStringList(key, value);
     } else {
-      throw Exception("不支持的类型: ${value.runtimeType}");
+      // ✅ 自动转 JSON 字符串保存
+      final jsonStr = jsonEncode(value);
+      await _prefs.setString(key, jsonStr);
     }
 
-    // 保存过期时间戳
     if (expireInSeconds != null) {
       final expiresAt = DateTime.now().add(Duration(seconds: expireInSeconds));
       await _prefs.setString('${key}__expires', expiresAt.toIso8601String());
     }
   }
 
-  /// 获取值，自动判断是否过期（过期返回 null 并删除 key）
   static dynamic get(String key) {
     final expireStr = _prefs.getString('${key}__expires');
     if (expireStr != null) {
@@ -41,10 +40,21 @@ class Prefs {
         return null;
       }
     }
-    return _prefs.get(key);
+
+    final raw = _prefs.get(key);
+
+    // ✅ 若是 String 且可能为 JSON，则尝试解析
+    if (raw is String && (raw.startsWith("{") || raw.startsWith("["))) {
+      try {
+        return jsonDecode(raw);
+      } catch (_) {
+        return raw;
+      }
+    }
+
+    return raw;
   }
 
-  /// 是否包含有效值（未过期）
   static bool contains(String key) {
     final expireStr = _prefs.getString('${key}__expires');
     if (expireStr != null) {
@@ -57,14 +67,23 @@ class Prefs {
     return _prefs.containsKey(key);
   }
 
-  /// 删除值（包括过期时间）
   static Future<void> remove(String key) async {
     await _prefs.remove(key);
     await _prefs.remove('${key}__expires');
   }
 
-  /// 清空所有（包括所有过期信息）
   static Future<void> clear() async {
     await _prefs.clear();
+  }
+
+  /// ✅ 可选扩展：明确的 JSON 保存方法
+  static Future<void> setJson(String key, Object value) async {
+    await _prefs.setString(key, jsonEncode(value));
+  }
+
+  static dynamic getJson(String key) {
+    final str = _prefs.getString(key);
+    if (str == null) return null;
+    return jsonDecode(str);
   }
 }
