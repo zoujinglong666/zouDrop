@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zou_drop/pages/tabbar/deviceSearchPage.dart';
 import 'package:zou_drop/pages/tabbar/home.dart';
 import 'package:zou_drop/pages/tabbar/send.dart';
 import 'package:zou_drop/pages/tabbar/setting.dart';
@@ -14,11 +15,12 @@ class _MainPageState extends State<MainPage>
     with SingleTickerProviderStateMixin {
   int selectedIndex = 0;
 
-  final List<Widget> pages = const [HomePage(), SendPage(), SettingsPage()];
+  final List<Widget> pages = const [HomePage(), SendPage(),DeviceSearchPage(), SettingsPage()];
 
   final List<_TabItem> tabs = const [
     _TabItem(icon: Icons.home, label: '接收'),
     _TabItem(icon: Icons.send, label: '发送'),
+    _TabItem(icon: Icons.search, label: '设备搜索'),
     _TabItem(icon: Icons.settings, label: '设置'),
   ];
 
@@ -87,8 +89,16 @@ class _CustomTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: 60, // 减小高度
       decoration: BoxDecoration(
         color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -101,51 +111,89 @@ class _CustomTabBar extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
-              padding:
-                  isSelected
-                      ? const EdgeInsets.symmetric(horizontal: 20, vertical: 12)
-                      : const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              curve: Curves.easeInOut,
+              padding: isSelected
+                  ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+                  : const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color:
-                    isSelected
-                        ? activeColor.withOpacity(0.5)
-                        : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow:
-                    isSelected
-                        ? [
-                          BoxShadow(
-                            color: activeColor.withOpacity(0.25),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ]
-                        : null,
+                gradient: isSelected
+                    ? const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF00D4FF),
+                          Color(0xFF0099CC),
+                        ],
+                      )
+                    : null,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFF00D4FF).withOpacity(0.25),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    tab.icon,
-                    size: isSelected ? 28 : 24,
-                    color:
-                        isSelected ? activeColor : Colors.grey.withOpacity(0.6),
+                  Stack(
+                    children: [
+                      Icon(
+                        tab.icon,
+                        size: isSelected ? 22 : 20, // 减小图标尺寸
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(0xFF666666),
+                      ),
+                      // 更小的连接状态指示器
+                      if (isSelected)
+                        Positioned(
+                          right: -2,
+                          top: -2,
+                          child: Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF00FF88),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4), // 减小间距
                   Text(
                     tab.label,
                     style: TextStyle(
-                      fontSize: 13,
-                      color:
-                          isSelected
-                              ? activeColor
-                              : Colors.grey.withOpacity(0.6),
-                      fontWeight:
-                          isSelected ? FontWeight.w700 : FontWeight.normal,
-                      letterSpacing: 0.4,
+                      fontSize: 10, // 减小字体
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0xFF888888),
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                      letterSpacing: 0.3,
                     ),
                   ),
+                  // 更小的速度指示条
+                  if (isSelected)
+                    Container(
+                      margin: const EdgeInsets.only(top: 2),
+                      width: 12,
+                      height: 1.5,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFF00FF88),
+                            Color(0xFF00D4FF),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(0.75),
+                      ),
+                    ),
                 ],
               ),
             ),

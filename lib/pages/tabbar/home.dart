@@ -12,7 +12,6 @@ import 'package:open_file/open_file.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../common/DeviceManager.dart';
-import '../../components/StatusIndicator.dart';
 import 'package:app_settings/app_settings.dart';
 
 class HomePage extends StatefulWidget {
@@ -840,19 +839,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              StatusIndicator(
+              _buildStatusCard(
+                icon: Icons.wifi,
+                title: 'UDP服务',
                 isActive: isUdpServiceRunning,
-                textBuilder: (isActive) => isActive ? 'UDP服务正常' : 'UDP服务未开启',
+                activeColor: const Color(0xFF00B8D4),
               ),
-              StatusIndicator(
+              _buildStatusCard(
+                icon: Icons.wifi,
+                title: 'TCP服务',
                 isActive: isTcpServerRunning,
-                textBuilder: (isActive) => isActive ? 'TCP服务正常' : 'TCP服务未开启',
+                activeColor: const Color(0xFF00B8D4),
               ),
-              StatusIndicator(
+              _buildStatusCard(
+                icon: Icons.devices,
+                title: '设备数量',
                 isActive: isTcpServerRunning,
-                textBuilder:
-                    (isActive) =>
-                        isActive ? devices.length.toString() : 'TCP服务未开启',
+                activeColor: const Color(0xFF00B8D4),
+                customText: discoveredIps.length.toString(),
               ),
             ],
           ),
@@ -860,106 +864,213 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           // 主体内容
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(12),
               children: [
                 // 刷新按钮
-                ElevatedButton.icon(
-                  onPressed: isSearching ? null : _refreshDiscovery,
-                  icon:
-                      isSearching
-                          ? const SizedBox(
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: isSearching ? null : _refreshDiscovery,
+                    icon: isSearching
+                        ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00D4FF)),
                           )
-                          : const Icon(Icons.refresh),
-                  label: Text(isSearching ? '正在搜索设备...' : '刷新查找设备'),
+                        : const Icon(Icons.refresh, color: Color(0xFF00D4FF)),
+                    label: Text(
+                      isSearching ? '正在搜索设备...' : '刷新查找设备',
+                      style: const TextStyle(color: Color(0xFF00D4FF), fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      elevation: 0,
+                      side: const BorderSide(color: Color(0xFF00D4FF), width: 1.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
 
                 // 设备列表
                 if (discoveredIps.isEmpty)
                   const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Center(child: Text('未发现设备，请点击刷新按钮搜索')),
+                    padding: EdgeInsets.all(24.0),
+                    child: Center(child: Text('未发现设备，请点击刷新按钮搜索', style: TextStyle(color: Color(0xFF00D4FF)))),
                   )
-                else
+                else ...[
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 8.0),
                     child: Text(
                       '发现的设备:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF00D4FF), fontSize: 16),
                     ),
                   ),
-
-                ...discoveredIps.map(
-                  (ip) => Card(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    child: ListTile(
-                      leading: Icon(
-                        connectedIp == ip ? Icons.link : Icons.devices,
-                        color: connectedIp == ip ? Colors.green : Colors.grey,
+                  ...discoveredIps.map(
+                    (ip) => Container(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      decoration: BoxDecoration(
+                        gradient: connectedIp == ip
+                            ? const LinearGradient(
+                                colors: [Color(0xFF00D4FF), Color(0xFF0099CC)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )
+                            : null,
+                        color: connectedIp == ip ? null : Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: connectedIp == ip
+                                ? const Color(0xFF00D4FF).withOpacity(0.10)
+                                : Colors.black.withOpacity(0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      title: GestureDetector(
-                        onTap: () => _renameDevice(ip),
-                        child: Text(
-                          deviceNames[ip] ?? ip,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            decoration: TextDecoration.underline,
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        leading: Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            gradient: connectedIp == ip
+                                ? const LinearGradient(
+                                    colors: [Color(0xFF00D4FF), Color(0xFF0099CC)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  )
+                                : null,
+                            color: connectedIp == ip ? null : const Color(0xFFF0F0F0),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            connectedIp == ip ? Icons.link : Icons.devices,
+                            color: connectedIp == ip ? Colors.white : const Color(0xFF00D4FF),
+                            size: 22,
+                          ),
+                        ),
+                        title: GestureDetector(
+                          onTap: () => _renameDevice(ip),
+                          child: Text(
+                            deviceNames[ip] ?? ip,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              decoration: TextDecoration.underline,
+                              color: connectedIp == ip ? Colors.white : const Color(0xFF222222),
+                            ),
+                          ),
+                        ),
+                        subtitle: Text(
+                          connectedIp == ip
+                              ? '✅ 已连接'
+                              : connectedSocket == null
+                                  ? '⚠️ 未连接'
+                                  : '🔌 正在连接其他设备',
+                          style: TextStyle(
+                            color: connectedIp == ip ? Colors.white70 : const Color(0xFF888888),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        trailing: ElevatedButton(
+                          onPressed: isSearching || (connectedIp == ip)
+                              ? null
+                              : () => _connectTo(ip),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: connectedIp == ip
+                                ? Colors.white.withOpacity(0.18)
+                                : Colors.white,
+                            foregroundColor: connectedIp == ip
+                                ? Colors.white
+                                : const Color(0xFF00D4FF),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            isLocalIp(ip) ? '本机' : '连接设备',
+                            style: TextStyle(
+                              color: connectedIp == ip ? Colors.white : const Color(0xFF00D4FF),
+                            ),
                           ),
                         ),
                       ),
-                      subtitle: Text(
-                        connectedIp == ip
-                            ? '✅ 已连接'
-                            : connectedSocket == null
-                            ? '⚠️ 未连接'
-                            : '🔌 正在连接其他设备',
-                        style: TextStyle(color: Colors.grey[700]),
-                      ),
-                      trailing: ElevatedButton(
-                        onPressed:
-                            isSearching || (connectedIp == ip)
-                                ? null
-                                : () => _connectTo(ip),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isLocalIp(ip) ? Colors.grey : null,
-                        ),
-                        child: Text(isLocalIp(ip) ? '本机' : '连接设备'),
-                      ),
                     ),
                   ),
-                ),
+                ],
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
                 // 文件操作按钮
                 Row(
                   children: [
                     Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed:
-                            connectedSocket != null ? _pickAndSendFile : null,
-                        icon: const Icon(Icons.image),
-                        label: const Text('发送图片'),
+                      child: Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: connectedSocket != null
+                                ? [Color(0xFF00D4FF), Color(0xFF0099CC)]
+                                : [Color(0xFFCCCCCC), Color(0xFFAAAAAA)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: const BorderRadius.all(Radius.circular(10)),
+                        ),
+                        child: ElevatedButton.icon(
+                          onPressed: connectedSocket != null ? _pickAndSendFile : null,
+                          icon: const Icon(Icons.image, color: Colors.white),
+                          label: const Text('发送图片', style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed:
-                            connectedSocket != null ? _pickAnyFile : null,
-                        icon: const Icon(Icons.attach_file),
-                        label: const Text('发送文件'),
+                      child: Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: connectedSocket != null
+                                ? [Color(0xFF00D4FF), Color(0xFF0099CC)]
+                                : [Color(0xFFCCCCCC), Color(0xFFAAAAAA)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: const BorderRadius.all(Radius.circular(10)),
+                        ),
+                        child: ElevatedButton.icon(
+                          onPressed: connectedSocket != null ? _pickAnyFile : null,
+                          icon: const Icon(Icons.attach_file, color: Colors.white),
+                          label: const Text('发送文件', style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
-                _buildLog(context),
+                // 日志区域
+                _buildLogModern(context),
               ],
             ),
           ),
@@ -968,47 +1079,125 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildLog(BuildContext context) => SizedBox(
-    width: double.infinity,
-    child: Column(
-      children: [
-        // 顶部行
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('操作日志:', style: TextStyle(fontWeight: FontWeight.bold)),
-            TextButton.icon(
-              onPressed: _clearLog,
-              icon: const Icon(Icons.clear_all, size: 16),
-              label: const Text('清空'),
-            ),
-          ],
-        ),
-        // 日志框
-        Container(
-          height: 200,
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(8),
+  // 状态卡片
+  Widget _buildStatusCard({
+    required IconData icon,
+    required String title,
+    required bool isActive,
+    required Color activeColor,
+    String? customText,
+  }) {
+    return Container(
+      width: 70,
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: isActive
+            ? const Color(0x2200D4FF)
+            : const Color(0xFFF5F6FA),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: isActive
+                ? const Color(0xFF00D4FF).withOpacity(0.06)
+                : Colors.black.withOpacity(0.01),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
           ),
-          width: double.infinity,
-          // 这里也可设置保证铺满
-          child:
-              showLog
-                  ? SingleChildScrollView(
-                    controller: _scrollController,
-                    child: Text(
-                      log.isEmpty ? '暂无日志' : log,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  )
-                  : null,
+        ],
+        border: Border.all(
+          color: isActive ? const Color(0x3300D4FF) : const Color(0xFFE0E0E0),
+          width: 1,
         ),
-      ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: isActive ? const Color(0xFF00D4FF) : const Color(0xFFB0BEC5),
+            size: 18,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            customText ?? (isActive ? '正常' : '未开启'),
+            style: TextStyle(
+              fontSize: 11,
+              color: isActive ? const Color(0xFF00D4FF) : const Color(0xFFB0BEC5),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 10,
+              color: Color(0xFF888888),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 现代化日志区域
+  Widget _buildLogModern(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF00D4FF), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF00D4FF).withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 10, 0),
+            child: Row(
+              children: [
+                const Icon(Icons.list_alt, size: 18, color: Color(0xFF00D4FF)),
+                const SizedBox(width: 6),
+                const Text('操作日志', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF00D4FF))),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _clearLog,
+                  icon: const Icon(Icons.clear_all, size: 16, color: Color(0xFF00D4FF)),
+                  label: const Text('清空', style: TextStyle(fontSize: 12, color: Color(0xFF00D4FF))),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF00D4FF),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            height: 120,
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              child: Text(
+                log.isEmpty ? '暂无日志' : log,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF222222),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }
