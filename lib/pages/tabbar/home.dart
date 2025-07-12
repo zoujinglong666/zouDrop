@@ -13,8 +13,12 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../common/DeviceManager.dart';
 import 'package:app_settings/app_settings.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../components/AnimatedGradientLinearProgress.dart';
 import '../../components/GradientButton.dart';
+import '../../common/UrlDetector.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -73,6 +77,170 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _onDevicesChanged() {
     if (!mounted) return;
     setState(() {});
+  }
+
+  Future<void> _showSendTextDialog() async {
+    final textController = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            color: Colors.white,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 标题区域
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF00D4FF), Color(0xFF0099CC)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.send,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Text(
+                                             '发送文本消息',
+                       style: TextStyle(
+                         fontSize: 20,
+                         fontWeight: FontWeight.bold,
+                         color: Color(0xFF333333),
+                       ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              
+              // 输入框
+              Container(
+                                 decoration: BoxDecoration(
+                   borderRadius: BorderRadius.circular(16),
+                   border: Border.all(
+                     color: const Color(0xFF00D4FF).withOpacity(0.3),
+                     width: 2,
+                   ),
+                   color: Colors.grey[50],
+                 ),
+                child: TextField(
+                  controller: textController,
+                                     style: const TextStyle(
+                     color: Color(0xFF333333),
+                     fontSize: 16,
+                   ),
+                  decoration: const InputDecoration(
+                    hintText: '请输入要发送的文本内容...',
+                                         hintStyle: TextStyle(
+                       color: Color(0xFF999999),
+                       fontSize: 16,
+                     ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.all(20),
+                  ),
+                  maxLines: 5,
+                  minLines: 3,
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // 按钮区域
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFF00D4FF).withOpacity(0.5),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: TextButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          '取消',
+                          style: TextStyle(
+                            color: Color(0xFF00D4FF),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF00D4FF), Color(0xFF0099CC)],
+                        ),
+                                                 borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(textController.text.trim()),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          '发送',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (result != null && result.isNotEmpty && connectedSocket != null) {
+      try {
+        // 发送文本消息
+        final message = 'TEXT:$result\n';
+        _log('发送文本消息: $result');
+        connectedSocket!.write(message);
+        await connectedSocket!.flush();
+        _log('文本消息发送成功');
+      } catch (e) {
+        _log('发送文本消息失败: $e');
+      }
+    }
   }
 
   Future<void> _initialize() async {
@@ -636,12 +804,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     socket.listen(
       (data) async {
         buffer.addAll(data);
+        print('接收到数据，buffer长度: ${buffer.length}');
+        print('接收到的原始字节: $data');
+        
         while (true) {
           if (!headerProcessed) {
             final newlineIndex = buffer.indexOf(10);
-            if (newlineIndex == -1) break;
+            print('查找换行符，位置: $newlineIndex');
+            if (newlineIndex == -1) {
+              print('未找到换行符，等待更多数据');
+              break;
+            }
 
             final headerText = utf8.decode(buffer.sublist(0, newlineIndex + 1));
+            print('解析的headerText: "$headerText"');
             if (headerText.startsWith('FILE:')) {
               final parts = headerText.split(':');
               if (parts.length >= 3) {
@@ -667,6 +843,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 buffer.clear();
                 break;
               }
+            } else if (headerText.startsWith('TEXT:')) {
+              // 处理文本消息
+              // 改进文本消息处理
+              print('检测到TEXT消息');
+              final textContent = headerText.substring(5, headerText.length - 1); // 去掉 'TEXT:' 和换行符
+              _log('收到文本消息: $textContent');
+              print('收到文本消息，长度: ${textContent.length}, 内容: "$textContent"');
+
+              // 确保在主线程中显示弹框
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                print('准备在主线程中显示弹框');
+                _showTextMessageDialog(textContent);
+              });
+
+              buffer.clear();
+              break;
             } else {
               buffer.clear();
               break;
@@ -736,6 +928,180 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _stopUdpDiscovery();
     await _startUdpDiscovery();
     _log('UDP广播发现服务已重启');
+  }
+
+    void _showTextMessageDialog(String textContent) {
+    if (!mounted) {
+      print('Widget not mounted, cannot show dialog');
+      return;
+    }
+    
+    print('准备显示文本消息弹框，内容: $textContent');
+    
+    // 使用 Future.delayed 确保在下一个帧中显示弹框
+    Future.delayed(Duration.zero, () {
+      if (!mounted) return;
+      
+      showDialog(
+        context: context,
+        barrierDismissible: false, // 防止意外关闭
+        builder: (context) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: Colors.white,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 标题区域
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF00D4FF), Color(0xFF0099CC)],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.message,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Text(
+                        '收到文本消息',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF333333),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                
+                // 文本内容区域
+                Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(
+                    minHeight: 100,
+                    maxHeight: 300,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFF00D4FF).withOpacity(0.3),
+                      width: 2,
+                    ),
+                    color: Colors.grey[50],
+                  ),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: RichText(
+                      text: TextSpan(
+                        children: UrlDetector.parseTextWithUrls(textContent),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
+                // 按钮区域
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 48,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFF00D4FF).withOpacity(0.5),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: TextButton(
+                          onPressed: () {
+                            print('用户点击关闭按钮');
+                            Navigator.of(context).pop();
+                          },
+                          style: TextButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            '关闭',
+                            style: TextStyle(
+                              color: Color(0xFF00D4FF),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Container(
+                        height: 48,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF00D4FF), Color(0xFF0099CC)],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: ElevatedButton(
+                          onPressed: () {
+                            print('用户点击复制按钮');
+                            Clipboard.setData(ClipboardData(text: textContent));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('文本已复制到剪贴板'),
+                                backgroundColor: Color(0xFF00D4FF),
+                              ),
+                            );
+                            Navigator.of(context).pop();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            '复制',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ).then((_) {
+        print('文本消息弹框已关闭');
+      }).catchError((error) {
+        print('显示文本消息弹框时出错: $error');
+      });
+    });
   }
 
   void _showHelpDialog() {
@@ -840,6 +1206,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         title: const Text('ZouDrop'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.message),
+            onPressed: () => _showTextMessageDialog('这是测试消息，用于验证弹框功能是否正常工作。\n\n包含网址的测试：\nhttps://www.google.com\nwww.baidu.com\nmailto:test@example.com'),
+            tooltip: '测试弹框',
+          ),
+          IconButton(
             icon: const Icon(Icons.help_outline),
             onPressed: _showHelpDialog,
             tooltip: '使用帮助',
@@ -849,8 +1220,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       body: Column(
         children: [
           // 进度条
-          LinearProgressIndicator(value: progress),
-
+          AnimatedGradientLinearProgress(
+            value:progress,
+            height: 4,
+            showPercentage: false,
+            enableGlow: true,
+            reverse: false, // 设置为 true 将从右向左
+            gradientColors: [Color(0xFF00D4FF), Color(0xFF0099CC)],
+            backgroundColor: Colors.grey.shade200,
+          ),
           const SizedBox(height: 8),
 
           Row(
@@ -1088,7 +1466,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           onPressed: _pickAndSendFile,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: GradientButton(
                           enabled: connectedSocket != null,
@@ -1098,6 +1476,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           ),
                           label: '发送文件',
                           onPressed: _pickAnyFile,
+                        ),
+                      ),
+                       const SizedBox(width: 8),
+                      // 添加发送文本按钮
+                      Expanded(
+                        child: GradientButton(
+                          enabled: connectedSocket != null,
+                          icon: const Icon(Icons.message, color: Colors.white),
+                          label: '发送文本',
+                          onPressed: _showSendTextDialog,
                         ),
                       ),
                     ],

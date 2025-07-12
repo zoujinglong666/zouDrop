@@ -20,12 +20,10 @@ class _SplashPageState extends State<SplashPage> {
 
   Future<void> _initApp() async {
     try {
-      await Future.delayed(const Duration(milliseconds: 500)); // 启动缓冲
+      await Future.delayed(const Duration(milliseconds: 100)); // 启动缓冲
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
-
       if (!mounted) return; // 确保页面仍在树中
-
       final targetPage = (token != null && token.isNotEmpty)
           ? const MainPage()
           : const MainPage();
@@ -49,8 +47,6 @@ class _SplashPageState extends State<SplashPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            FlutterLogo(size: 64),
-            SizedBox(height: 16),
             CircularProgressIndicator(),
             SizedBox(height: 8),
             Text('正在加载...', style: TextStyle(color: Colors.grey)),

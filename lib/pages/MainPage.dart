@@ -105,8 +105,10 @@ class _CustomTabBar extends StatelessWidget {
         children: List.generate(tabs.length, (index) {
           final tab = tabs[index];
           final isSelected = index == selectedIndex;
-
-          return GestureDetector(
+          return Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: GestureDetector(
             onTap: () => onTap(index),
             behavior: HitTestBehavior.opaque,
             child: AnimatedContainer(
@@ -118,23 +120,23 @@ class _CustomTabBar extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: isSelected
                     ? const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFF00D4FF),
-                          Color(0xFF0099CC),
-                        ],
-                      )
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF00D4FF),
+                    Color(0xFF0099CC),
+                  ],
+                )
                     : null,
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: isSelected
                     ? [
-                        BoxShadow(
-                          color: const Color(0xFF00D4FF).withOpacity(0.25),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
+                  BoxShadow(
+                    color: const Color(0xFF00D4FF).withOpacity(0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
                     : null,
               ),
               child: Column(
@@ -197,7 +199,9 @@ class _CustomTabBar extends StatelessWidget {
                 ],
               ),
             ),
-          );
+          ),
+        ),
+      );
         }),
       ),
     );
