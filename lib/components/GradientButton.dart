@@ -35,12 +35,17 @@ class GradientButton extends StatelessWidget {
       child: ElevatedButton.icon(
         onPressed: enabled ? onPressed : null,
         icon: icon,
-        label: Text(label, style: const TextStyle(color: Colors.white)),
+        label: Text(
+          label,
+          style: const TextStyle(color: Colors.white, fontSize: 12),
+        ),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       ),
     );

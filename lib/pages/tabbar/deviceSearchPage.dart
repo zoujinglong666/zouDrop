@@ -1,12 +1,14 @@
 import 'dart:io';
 import 'dart:math' as Math;
 import 'dart:typed_data';
-
+import 'dart:convert';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:udp/udp.dart';
-import 'dart:convert';
-import '../../common/Prefs.dart'; // 添加Prefs导入
+import '../../common/Prefs.dart';
+import '../../components/GradientButton.dart'; // 添加Prefs导入
+import 'package:open_file/open_file.dart';
 
 // 文件历史记录模型
 class FileHistory {
@@ -15,6 +17,7 @@ class FileHistory {
   final String deviceName;
   final String deviceIp;
   final DateTime sendTime;
+  final String filePath; // 新增
 
   FileHistory({
     required this.fileName,
@@ -22,6 +25,7 @@ class FileHistory {
     required this.deviceName,
     required this.deviceIp,
     required this.sendTime,
+    required this.filePath, // 新增
   });
 
   // 转换为JSON
@@ -31,6 +35,7 @@ class FileHistory {
     'deviceName': deviceName,
     'deviceIp': deviceIp,
     'sendTime': sendTime.toIso8601String(),
+    'filePath': filePath, // 新增
   };
 
   // 从JSON创建对象
@@ -40,6 +45,7 @@ class FileHistory {
     deviceName: json['deviceName'],
     deviceIp: json['deviceIp'],
     sendTime: DateTime.parse(json['sendTime']),
+    filePath: json['filePath'] ?? '', // 新增
   );
 }
 
@@ -47,8 +53,8 @@ class DeviceInfo {
   final String name;
   final String ip;
   final int port;
-
-  DeviceInfo({required this.name, required this.ip, required this.port});
+  final String source;
+  DeviceInfo({required this.name, required this.ip, required this.port, this.source = 'web'});
 }
 
 class DeviceSearchPage extends StatefulWidget {
@@ -81,8 +87,75 @@ class _DeviceSearchPageState extends State<DeviceSearchPage>
         _tabIndex = _tabController.index;
       });
     });
+    searchFlutter();
     discoverDevices();
     _loadFileHistory();
+  }
+
+  Future<void> searchFlutter() async {
+    // 1. UDP发现服务端
+    RawDatagramSocket.bind(InternetAddress.anyIPv4, 0).then((socket) {
+      socket.broadcastEnabled = true;
+      // 发送发现包
+      socket.send(
+        utf8.encode('ZOU_DROP_DISCOVERY'),
+        InternetAddress('255.255.255.255'),
+        5678,
+      );
+
+      socket.listen((event) async {
+        if (event == RawSocketEvent.read) {
+          final datagram = socket.receive();
+          if (datagram != null) {
+            final response = utf8.decode(datagram.data);
+            print('发现服务端: $response');
+            final info = json.decode(response);
+            final ip = (info['ipList'] as List).first; // 取第一个IP
+            final port = info['port'];
+            String ipStr = 'http://$ip:$port';
+
+            // 2. 连接socket.io并注册为flutter设备
+            final sio = IO.io(ipStr, <String, dynamic>{
+              'transports': ['websocket'],
+              'autoConnect': false,
+            });
+            print('sio: $sio');
+            try {
+              sio.connect();
+              sio.on('connect', (_) {
+                print('已连接socket.io');
+                sio.emit('JOIN_ROOM', {'device': 'flutter'});
+              });
+            } catch (e) {
+              print('连接失败: $e');
+            }
+
+            // 3. 监听服务端推送
+            sio.on('INIT_USER', (data) {
+              print('收到用户列表: $data');
+            });
+            sio.on('JOIN_ROOM', (data) {
+              print('有新用户加入: $data');
+            });
+            sio.on('LEAVE_ROOM', (data) {
+              print('有用户离开: $data');
+            });
+
+            sio.on('disconnect', (_) {
+              print('❌ 断开连接，将尝试重新连接');
+              Future.delayed(Duration(seconds: 5), () {
+                if (!sio.connected) {
+                  searchFlutter(); // 重试连接
+                }
+              });
+            });
+
+            // 只发现一次就关闭UDP socket
+            // socket.close();
+          }
+        }
+      });
+    });
   }
 
   @override
@@ -114,13 +187,14 @@ class _DeviceSearchPageState extends State<DeviceSearchPage>
   }
 
   // 添加发送历史记录
-  void _addToHistory(DeviceInfo device) {
+  void _addToHistory(DeviceInfo device, String filePath) {
     final history = FileHistory(
       fileName: currentFileName,
       fileSize: currentFileSize,
       deviceName: device.name,
       deviceIp: device.ip,
       sendTime: DateTime.now(),
+      filePath: filePath, // 新增
     );
 
     setState(() {
@@ -132,6 +206,31 @@ class _DeviceSearchPageState extends State<DeviceSearchPage>
     });
 
     _saveFileHistory(); // 保存到本地存储
+  }
+
+  void listenForAck(Socket socket) async {
+    final buffer = BytesBuilder();
+
+    await for (var data in socket) {
+      buffer.add(data);
+
+      // 至少要有4字节长度
+      if (buffer.length >= 4) {
+        final bytes = buffer.toBytes();
+        final length = ByteData.sublistView(bytes, 0, 4).getUint32(0);
+
+        if (bytes.length >= 4 + length) {
+          final jsonBytes = bytes.sublist(4, 4 + length);
+          final jsonStr = utf8.decode(jsonBytes);
+          final ack = json.decode(jsonStr);
+          if (ack['status'] == 'ok') {
+            print('✅ 文件接收完成');
+            // 这里可以弹窗、更新UI等
+          }
+          break;
+        }
+      }
+    }
   }
 
   // 清空历史记录
@@ -186,6 +285,7 @@ class _DeviceSearchPageState extends State<DeviceSearchPage>
         final data = utf8.decode(datagram.data);
         try {
           final json = jsonDecode(data);
+          print(json);
           if (json is Map<String, dynamic> &&
               json.containsKey("name") &&
               json.containsKey("ipList") &&
@@ -204,6 +304,7 @@ class _DeviceSearchPageState extends State<DeviceSearchPage>
       sender.close();
 
       setState(() {
+        print(found.toString());
         devices = found;
         isLoading = false;
       });
@@ -257,9 +358,10 @@ class _DeviceSearchPageState extends State<DeviceSearchPage>
     try {
       final socket = await Socket.connect(
         '10.9.17.94',
-        9999,
+        3000,
         timeout: const Duration(seconds: 5),
       );
+      // await receiveAck(socket);
 
       // ===== ✅ 添加 header =====
       final header = {'filename': fileName, 'filesize': fileSize};
@@ -288,6 +390,7 @@ class _DeviceSearchPageState extends State<DeviceSearchPage>
           setState(() => uploadProgress = sent / fileSize); // 更新进度
         }
         print("📤 文件发送完成，总大小: $fileSize bytes");
+        listenForAck(socket);
       } finally {
         raf.closeSync();
         setState(() {
@@ -297,10 +400,10 @@ class _DeviceSearchPageState extends State<DeviceSearchPage>
         });
 
         // 添加到发送历史
-          _addToHistory(device);
+        _addToHistory(device, file.path); // 传入本地路径
 
         // 3秒后隐藏成功提示
-        Future.delayed(const Duration(seconds: 3), () {
+        Future.delayed(const Duration(seconds: 1), () {
           if (mounted) {
             setState(() => showUploadSuccess = false);
           }
@@ -329,6 +432,35 @@ class _DeviceSearchPageState extends State<DeviceSearchPage>
   String _twoDigits(int n) {
     if (n >= 10) return "$n";
     return "0$n";
+  }
+
+  Future<void> receiveAck(Socket socket) async {
+
+    // 用于缓存数据
+    final buffer = BytesBuilder();
+    // 监听数据
+    await for (var data in socket) {
+      buffer.add(data);
+      // 至少要有4字节长度
+      if (buffer.length >= 4) {
+        final bytes = buffer.toBytes();
+        final length = ByteData.sublistView(bytes, 0, 4).getUint32(0);
+
+        // 判断是否收齐
+        if (bytes.length >= 4 + length) {
+          final jsonBytes = bytes.sublist(4, 4 + length);
+          final jsonStr = utf8.decode(jsonBytes);
+          final ack = json.decode(jsonStr);
+          print('收到服务端回执: $ack');
+          // 处理后续逻辑...
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('收到服务端回执: $ack'), backgroundColor: Colors.blue),
+          );
+          // 如果只收一次，可以 break 或 return
+          break;
+        }
+      }
+    }
   }
 
   @override
@@ -508,6 +640,7 @@ class _DeviceSearchPageState extends State<DeviceSearchPage>
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 16),
+
             ElevatedButton(
               onPressed: discoverDevices,
               style: ElevatedButton.styleFrom(
@@ -533,44 +666,70 @@ class _DeviceSearchPageState extends State<DeviceSearchPage>
       itemCount: devices.length,
       itemBuilder: (context, index) {
         final device = devices[index];
-        return Card(
-          elevation: 2,
+        // 自动识别来源
+        String source = device.source;
+        if (device.ip.startsWith('192.168.') || device.ip.startsWith('10.') || device.ip.startsWith('172.')) {
+          if (device.name.toLowerCase().contains('android')) {
+            source = 'Android';
+          } else if (device.name.toLowerCase().contains('ios')) {
+            source = 'iOS';
+          } else if (device.name.toLowerCase().contains('pc') || device.name.toLowerCase().contains('windows') || device.name.toLowerCase().contains('mac')) {
+            source = 'PC';
+          } else if (device.ip == /* 本机IP获取逻辑 */ '') {
+            source = '本机';
+          }
+        }
+        return Container(
           margin: const EdgeInsets.symmetric(vertical: 6),
-          shape: RoundedRectangleBorder(
+          decoration: BoxDecoration(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
-            leading: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: const Color(0xFF0099CC).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(24),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0099CC).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: const Icon(
+                      Icons.devices,
+                      color: Color(0xFF0099CC),
+                      size: 28,
+                    ),
+                  ),
+                  title: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center, // 让tip和文字在竖直方向居中
+                    children: [
+                      Expanded(
+                        child: Text(
+                          device.name,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      _buildSourceTip(source),
+                    ],
+                  ),
+                  subtitle: Text(
+                    "${device.ip}:${device.port}",
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.send, color: Color(0xFF0099CC)),
+                    onPressed: () => sendFileViaTcp(device),
+                    tooltip: "发送文件",
+                  ),
+                  onTap: () => sendFileViaTcp(device),
+                ),
               ),
-              child: const Icon(
-                Icons.devices,
-                color: Color(0xFF0099CC),
-                size: 28,
-              ),
-            ),
-            title: Text(
-              device.name,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            subtitle: Text(
-              "${device.ip}:${device.port}",
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-            trailing: IconButton(
-              icon: const Icon(Icons.send, color: Color(0xFF0099CC)),
-              onPressed: () => sendFileViaTcp(device),
-              tooltip: "发送文件",
-            ),
-            onTap: () => sendFileViaTcp(device),
+            ],
           ),
         );
       },
@@ -673,9 +832,67 @@ class _DeviceSearchPageState extends State<DeviceSearchPage>
               ],
             ),
             isThreeLine: true,
+            onTap: () async {
+              if (history.filePath.isNotEmpty && await File(history.filePath).exists()) {
+                final result = await OpenFile.open(history.filePath);
+                // if (result.type != 'done') {
+                //   ScaffoldMessenger.of(context).showSnackBar(
+                //     SnackBar(content: Text('无法打开文件: \\${result.message}')),
+                //   );
+                // }
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('文件不存在或路径无效')),
+                );
+              }
+            },
           ),
         );
       },
     );
   }
+}
+
+Widget _buildSourceTip(String source) {
+  IconData icon;
+  Color color;
+  switch (source.toLowerCase()) {
+    case 'android':
+      icon = Icons.android;
+      color = Colors.green;
+      break;
+    case 'ios':
+      icon = Icons.phone_iphone;
+      color = Colors.blue;
+      break;
+    case 'pc':
+      icon = Icons.computer;
+      color = Colors.grey;
+      break;
+    case '本机':
+      icon = Icons.home;
+      color = Colors.orange;
+      break;
+    default:
+      icon = Icons.device_unknown;
+      color = Colors.grey;
+  }
+  return Container(
+    margin: const EdgeInsets.only(left: 6),
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 2),
+        Text(source, style: TextStyle(fontSize: 12, color: color)),
+      ],
+    ),
+  );
 }

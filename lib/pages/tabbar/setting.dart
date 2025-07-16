@@ -25,14 +25,13 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     _loadSettings();
   }
-
   Future<void> _loadSettings() async {
     final sp = await SharedPreferences.getInstance();
     setState(() {
       _nameCtr.text = sp.getString('deviceName') ?? '我的设备';
       _portCtr.text = (sp.getInt('port') ?? 53321).toString();
-      _udpPortCtr.text = (sp.getInt('udpPort') ?? 53321).toString(); // ✅ 新增
-      _tcpPortCtr.text = (sp.getInt('tcpPort') ?? 53322).toString(); // ✅ 新增
+      _udpPortCtr.text = (sp.getInt('udpPort') ?? 4567).toString(); // ✅ 新增
+      _tcpPortCtr.text = (sp.getInt('tcpPort') ?? 5000).toString(); // ✅ 新增
       quickSave = sp.getBool('quickSave') ?? false;
       autoFinish = sp.getBool('autoFinish') ?? true;
       saveToGallery = sp.getBool('saveToGallery') ?? false;

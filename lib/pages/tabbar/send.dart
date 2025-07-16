@@ -36,8 +36,27 @@ class _SendPageState extends State<SendPage> {
   Socket? connectedSocket;
   String? connectedIp;
 
+  bool _textIsEmpty = true; // 新增变量跟踪文本是否为空
+
+  @override
+  void initState() {
+    super.initState();
+    // 添加监听器，在文本变化时更新按钮状态
+    _textController.addListener(_updateTextStatus);
+  }
+
+  void _updateTextStatus() {
+    final newIsEmpty = _textController.text.trim().isEmpty;
+    if (_textIsEmpty != newIsEmpty) {
+      setState(() {
+        _textIsEmpty = newIsEmpty;
+      });
+    }
+  }
+
   @override
   void dispose() {
+    _textController.removeListener(_updateTextStatus); // 移除监听器
     _textController.dispose();
     connectedSocket?.close();
     super.dispose();
@@ -174,6 +193,13 @@ class _SendPageState extends State<SendPage> {
                   contentPadding: EdgeInsets.all(16),
                 ),
                 style: const TextStyle(fontSize: 16),
+                onSubmitted: (value) {
+                  if (value.trim().isNotEmpty) {
+                    _sendText();
+                  }
+                },
+                onEditingComplete: () {}, // 防止默认收起键盘
+                textInputAction: TextInputAction.send,
               ),
             ),
           ),
@@ -185,7 +211,7 @@ class _SendPageState extends State<SendPage> {
                 child: SizedBox(
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: _textController.text.trim().isEmpty ? null : _sendText,
+                    onPressed: _textIsEmpty ? null : _sendText,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF00D4FF),
                       foregroundColor: Colors.white,
@@ -205,7 +231,7 @@ class _SendPageState extends State<SendPage> {
               SizedBox(
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: _textController.text.trim().isEmpty ? null : _testSendText,
+                  onPressed: _textIsEmpty ? null : _testSendText,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.orange,
                       foregroundColor: Colors.white,
@@ -362,7 +388,12 @@ class _SendPageState extends State<SendPage> {
                   Icons.devices,
                   color: device.isOnline ? const Color(0xFF00D4FF) : Colors.grey,
                 ),
-                title: Text(device.name),
+                title: Row(
+                  children: [
+                    Expanded(child: Text(device.name)),
+                    _buildSourceTag(device),
+                  ],
+                ),
                 subtitle: Text(device.ip),
                 trailing: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -403,88 +434,134 @@ class _SendPageState extends State<SendPage> {
   }
 
   Widget _buildDeviceCard() {
-    return Expanded(
-      child: AnimatedBuilder(
-        animation: DeviceManager(),
-        builder: (context, _) {
-          final devices = DeviceManager().mapToList();
+    return AnimatedBuilder(
+      animation: DeviceManager(),
+      builder: (context, _) {
+        final devices = DeviceManager().mapToList();
 
-          if (devices.isEmpty) {
-            return const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text('暂无设备', style: TextStyle(color: Color(0xFF00D4FF))),
-            );
-          }
+        if (devices.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text('暂无设备', style: TextStyle(color: Color(0xFF00D4FF))),
+          );
+        }
 
-          return ListView.builder(
-            itemCount: devices.length,
-            itemBuilder: (context, index) {
-              final device = devices[index];
-              final isOnline = device.isOnline;
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: isOnline
-                          ? const Color(0xFF00D4FF).withOpacity(0.10)
-                          : Colors.black.withOpacity(0.03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+        return ListView.builder(
+          itemCount: devices.length,
+          itemBuilder: (context, index) {
+            final device = devices[index];
+            final isOnline = device.isOnline;
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: isOnline
+                        ? const Color(0xFF00D4FF).withOpacity(0.10)
+                        : Colors.black.withOpacity(0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                leading: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: isOnline ? const Color(0xFF00D4FF) : const Color(0xFFE0E0E0),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.devices,
+                    color: isOnline ? Colors.white : Colors.grey,
+                    size: 22,
+                  ),
                 ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  leading: Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: isOnline ? const Color(0xFF00D4FF) : const Color(0xFFE0E0E0),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.devices,
-                      color: isOnline ? Colors.white : Colors.grey,
-                      size: 22,
-                    ),
-                  ),
-                  title: Text(
-                    device.name,
-                    style: TextStyle(
-                      color: isOnline ? const Color(0xFF222222) : Colors.grey[700],
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                    ),
-                  ),
-                  subtitle: Text(
-                    device.ip,
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF888888)),
-                  ),
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isOnline
-                          ? const Color(0x2200FF88)
-                          : Colors.grey.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      isOnline ? '在线' : '离线',
-                      style: TextStyle(
-                        color: isOnline ? const Color(0xFF00FF88) : Colors.grey,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
+                title: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        device.name,
+                        style: TextStyle(
+                          color: isOnline ? const Color(0xFF222222) : Colors.grey[700],
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
+                    _buildSourceTag(device),
+                  ],
+                ),
+                subtitle: Text(
+                  device.ip,
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF888888)),
+                ),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isOnline
+                        ? const Color(0x2200FF88)
+                        : Colors.grey.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    isOnline ? '在线' : '离线',
+                    style: TextStyle(
+                      color: isOnline ? const Color(0xFF00FF88) : Colors.grey,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
-              );
-            },
-          );
-        },
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSourceTag(Device device) {
+    String source = '';
+    IconData icon = Icons.device_unknown;
+    Color color = Colors.grey;
+    final name = device.name.toLowerCase();
+    if (name.contains('android')) {
+      source = 'Android';
+      icon = Icons.android;
+      color = Colors.green;
+    } else if (name.contains('ios')) {
+      source = 'iOS';
+      icon = Icons.phone_iphone;
+      color = Colors.blue;
+    } else if (name.contains('pc') || name.contains('windows') || name.contains('mac')) {
+      source = 'PC';
+      icon = Icons.computer;
+      color = Colors.grey;
+    } else if (device.ip == '127.0.0.1' || device.ip == 'localhost') {
+      source = '本机';
+      icon = Icons.home;
+      color = Colors.orange;
+    }
+    if (source.isEmpty) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 2),
+          Text(source, style: TextStyle(fontSize: 12, color: color)),
+        ],
       ),
     );
   }
